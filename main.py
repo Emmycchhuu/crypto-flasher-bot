@@ -7,6 +7,7 @@ from telegram.ext import (
     MessageHandler,
     filters,
     ContextTypes,
+    ApplicationHandlerStop,
 )
 import re
 import asyncio
@@ -100,6 +101,12 @@ app = FastAPI()
 async def health_check():
     logger.info("Health check endpoint accessed")
     return {"status": "ok"}
+
+# Root endpoint to reduce 404 noise
+@app.get("/")
+async def root():
+    logger.info("Root endpoint accessed")
+    return {"message": "Crypix Flasher Bot is running. Use /health for status checks."}
 
 # Validate crypto address
 def is_valid_address(address: str, coin: str) -> bool:
@@ -317,13 +324,14 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"{EMOJI_ERROR} Invalid address for {coin}. Please provide a valid address."
             )
 
-# Error handler
+# Error handler (corrected for v20.7)
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.error(f"Update {update} caused error {context.error}")
     if update and update.effective_message:
         await update.effective_message.reply_text(
             f"{EMOJI_ERROR} An error occurred. Please try again or restart with /start."
         )
+    raise ApplicationHandlerStop
 
 # Run Telegram bot
 def run_bot():
@@ -333,7 +341,7 @@ def run_bot():
         application.add_handler(CommandHandler("start", start))
         application.add_handler(CallbackQueryHandler(button))
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-        application.add_handler(error_handler)
+        application.add_error_handler(error_handler)  # Corrected error handler
         application.run_polling(allowed_updates=Update.ALL_TYPES)
     except Exception as e:
         logger.error(f"Telegram bot failed: {e}")
