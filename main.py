@@ -13,7 +13,7 @@ import re
 import asyncio
 from web3 import Web3
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 import uvicorn
 import threading
 import os
@@ -97,10 +97,10 @@ web3 = Web3()
 # Initialize FastAPI
 app = FastAPI()
 
-# Health check endpoint for UptimeRobot
-@app.get("/health")
-async def health_check():
-    logger.info("Health check endpoint accessed")
+# Health check endpoint supporting GET and HEAD
+@app.route("/health", methods=["GET", "HEAD"])
+async def health_check(request: Request):
+    logger.info(f"Health check endpoint accessed with {request.method}")
     return {"status": "ok"}
 
 # Root endpoint to reduce 404 noise
