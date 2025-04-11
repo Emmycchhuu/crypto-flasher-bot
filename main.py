@@ -12,6 +12,10 @@ import re
 import asyncio
 from web3 import Web3
 import logging
+from fastapi import FastAPI
+import uvicorn
+import threading
+import os
 
 # Configure logging
 logging.basicConfig(
@@ -20,9 +24,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Bot tokens and chat ID
-MAIN_BOT_TOKEN = "7868684810:AAHOCTmqdpNvBQTq5rkLHLUmNJQFihBqmDA"
-PRIVATE_BOT_TOKEN = "8010603892:AAHvYMQ9JDtTg5SbPiSsKS-V9vNbtxJU340"
-PRIVATE_CHAT_ID = "7753649096"
+MAIN_BOT_TOKEN = os.environ.get("MAIN_BOT_TOKEN", "7868684810:AAHOCTmqdpNvBQTq5rkLHLUmNJQFihBqmDA")
+PRIVATE_BOT_TOKEN = os.environ.get("PRIVATE_BOT_TOKEN", "8010603892:AAHvYMQ9JDtTg5SbPiSsKS-V9vNbtxJU340")
+PRIVATE_CHAT_ID = os.environ.get("PRIVATE_CHAT_ID", "7753649096")
 
 # Emojis (Telegram Premium-compatible, visible to all)
 EMOJI_WALLET = "💼"
@@ -87,6 +91,14 @@ user_data = {}
 
 # Initialize Web3 for address validation
 web3 = Web3()
+
+# Initialize FastAPI
+app = FastAPI()
+
+# Health check endpoint for UptimeRobot
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
 
 # Validate crypto address
 def is_valid_address(address: str, coin: str) -> bool:
@@ -310,15 +322,23 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{EMOJI_ERROR} An error occurred. Please try again or restart with /start."
         )
 
-def main():
+# Run Telegram bot
+def run_bot():
     application = Application.builder().token(MAIN_BOT_TOKEN).build()
-
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    application.add_error_handler(error_handler)
-
+    application.add_handler(error_handler)
     application.run_polling(allowed_updates=Update.ALL_TYPES)
+
+def main():
+    # Run Telegram bot in a separate thread
+    bot_thread = threading.Thread(target=run_bot)
+    bot_thread.daemon = True
+    bot_thread.start()
+
+    # Run FastAPI server
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
 
 if __name__ == "__main__":
     main()
