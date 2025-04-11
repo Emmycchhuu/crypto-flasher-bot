@@ -1,0 +1,11 @@
+{
+  "name": "crypto-flasher-bot",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "pm2 start server.py --interpreter python3 --name bot && pm2 logs"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=14"
+  }
+}
